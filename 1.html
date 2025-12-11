@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>加载中...</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .intro-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .intro-container h1 {
+      font-size: 2rem;
+      margin-bottom: 16px;
+    }
+    .tagline {
+      color: #666;
+      font-size: 1.1rem;
+      margin-bottom: 24px;
+    }
+    .description {
+      max-width: 600px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .contact-info a {
+      color: #1890ff;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- 可选：仅开发时启用 vConsole -->
+  
+  <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+  <script>
+    var vConsole = new window.VConsole();
+  </script>
+  
+
+  <script>
+    // ===== 配置区 =====
+    const host = 'https://easy.sub.kolo.run'; //
+
+    // ===== 调试辅助函数 =====
+    function log(tag, message) {
+      console.log(`[DEBUG] ${tag}:`, message);
+    }
+
+    // ===== 显示介绍页 =====
+    function showIntroPage(title, description) {
+      log('showIntroPage', { title, description });
+      document.body.innerHTML = `
+        <div class="intro-container">
+          <h1>${escapeHtml(title)}</h1>
+          <p class="tagline">创意与技术的完美融合</p>
+          <p class="description">${escapeHtml(description)}</p>
+          <div class="contact-info">
+            如有疑问，请联系我们：<a href="mailto:contact@example.com">contact@example.com</a>
+          </div>
+        </div>
+      `;
+    }
+
+    // HTML 转义防 XSS
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ===== 加载解析脚本 =====
+    function loadResolveResult(code) {
+      return new Promise((resolve, reject) => {
+        // 缓存检查
+        if (window.resolve_result && window._resolve_code === code) {
+          log('loadResolveResult', '命中缓存');
+          resolve(window.resolve_result);
+          return;
+        }
+
+        const script = document.createElement('script');
+        const url = `${host}/api/resolve.js.php?v=${encodeURIComponent(code)}`;
+        console.log('loadResolveResult', `开始加载脚本: ${url}`);
+
+        // 超时处理（10秒）
+        const timeoutId = setTimeout(() => {
+          script.remove();
+          reject(new Error('脚本加载超时'));
+        }, 10000);
+
+        script.onload = () => {
+          clearTimeout(timeoutId);
+          console.log('loadResolveResult', '脚本加载成功，检查 resolve_result...');
+          if (typeof window.resolve_result !== 'undefined') {
+            console.log('loadResolveResult', 'resolve_result 内容:', window.resolve_result);
+            window._resolve_code = code;
+            resolve(window.resolve_result);
+          } else {
+            reject(new Error('脚本已加载，但未定义 window.resolve_result'));
+          }
+        };
+
+        script.onerror = () => {
+          clearTimeout(timeoutId);
+          log('loadResolveResult', '脚本加载失败');
+          reject(new Error('脚本加载失败，请检查网络或跨域设置'));
+        };
+
+        script.src = url;
+        document.head.appendChild(script);
+      });
+    }
+
+    // ===== 加载 iframe =====
+    function loadIframe(url) {
+      log('loadIframe', `准备加载 URL: ${url}`);
+      if (!url || typeof url !== 'string') {
+        log('loadIframe', 'URL 无效，跳过加载');
+        return;
+      }
+      const iframe = document.createElement('iframe');
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      log('loadIframe', 'iframe 已插入页面');
+    }
+
+    // ===== 主逻辑入口 =====
+    (async () => {
+      try {
+        log('main', '开始执行主逻辑');
+
+        // 1. 优先从 ?r=xxx 获取 code
+        const urlParams = new URLSearchParams(window.location.search);
+        let code = urlParams.get('r');
+        log('main', '从 URL 参数获取 code:', code);
+
+        // 2. 若无 r 参数，尝试从路径末尾提取
+        if (!code) {
+          const pathParts = window.location.pathname.split('/').filter(Boolean);
+          code = pathParts[pathParts.length - 1] || null;
+          log('main', '从路径提取 code:', code);
+        }
+
+        // 3. 验证 code 格式
+        if (!code || !/^[a-zA-Z0-9]{4,10}$/.test(code)) {
+          log('main', 'code 无效或缺失，显示默认介绍页');
+          showIntroPage('欢迎来到我们的工作室', '请输入有效的访问码，或通过邀请链接进入。');
+          return;
+        }
+
+        // 4. 加载解析结果
+        const [success, message, targetUrl] = await loadResolveResult(code);
+        log('main', '解析结果:', { success, message, targetUrl });
+
+        if (success && targetUrl) {
+          loadIframe(targetUrl);
+        } else {
+          showIntroPage('访问受限', `很抱歉，${message || '请求被拒绝'}`);
+        }
+      } catch (err) {
+        console.error('[ERROR] 主逻辑异常:', err);
+        showIntroPage('系统错误', `加载失败：${err.message || '未知错误'}`);
+      }
+    })();
+  </script>
+</body>
+</html>
