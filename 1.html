@@ -91,11 +91,11 @@
     function loadResolveResult(code) {
       return new Promise((resolve, reject) => {
         // 缓存检查
-        if (window.resolve_result && window._resolve_code === code) {
-          log('loadResolveResult', '命中缓存');
-          resolve(window.resolve_result);
-          return;
-        }
+        // if (window.resolve_result && window._resolve_code === code) {
+          // log('loadResolveResult', '命中缓存');
+          // resolve(window.resolve_result);
+          // return;
+        // }
 
         const script = document.createElement('script');
         const timestamp = Date.now();
