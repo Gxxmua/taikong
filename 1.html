@@ -98,7 +98,8 @@
         }
 
         const script = document.createElement('script');
-        const url = `${host}/api/resolve.js.php?v=${encodeURIComponent(code)}`;
+        const timestamp = Date.now();
+        const url = `${host}/api/resolve.js.php?v=${encodeURIComponent(code)}&t=${timestamp}`;
         console.log('loadResolveResult', `开始加载脚本: ${url}`);
 
         // 超时处理（10秒）
